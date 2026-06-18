@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reliability Dashboard — MTBF / Availability</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --bg:#0d1117;
+  --bg2:#161b22;
+  --bg3:#1c2330;
+  --panel:#171d28;
+  --line:#2a3340;
+  --line2:#3a4757;
+  --txt:#e6edf3;
+  --txt2:#9aa7b5;
+  --txt3:#6b7785;
+  --accent:#3b9eff;
+  --accent2:#1f6feb;
+  --teal:#2dd4a7;
+  --amber:#f0b429;
+  --red:#f0564a;
+  --green:#3fb950;
+  --series:#3b9eff;
+  --parallel:#2dd4a7;
+  --mono:'IBM Plex Mono',monospace;
+  --sans:'Space Grotesk',-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--sans);
+  background:var(--bg);
+  background-image:radial-gradient(circle at 15% 10%,rgba(59,158,255,0.06),transparent 40%),radial-gradient(circle at 85% 90%,rgba(45,212,167,0.05),transparent 40%);
+  background-attachment:fixed;
+  color:var(--txt);
+  line-height:1.5;
+  min-height:100vh;
+  padding:0 0 60px;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* HEADER */
+header{
+  border-bottom:1px solid var(--line);
+  background:rgba(13,17,23,0.8);
+  backdrop-filter:blur(10px);
+  position:sticky;top:0;z-index:50;
+}
+.header-inner{display:flex;align-items:center;justify-content:space-between;padding:18px 0;flex-wrap:wrap;gap:16px}
+.brand{display:flex;align-items:center;gap:14px}
+.logo-mark{
+  width:42px;height:42px;border-radius:9px;
+  background:linear-gradient(135deg,var(--accent2),var(--teal));
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-weight:600;font-size:18px;color:#fff;
+  box-shadow:0 0 24px rgba(59,158,255,0.3);
+}
+.brand h1{font-size:19px;font-weight:600;letter-spacing:-0.01em}
+.brand p{font-size:12px;color:var(--txt3);font-family:var(--mono);letter-spacing:0.02em}
+.lang-switch{display:flex;background:var(--bg2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.lang-switch button{
+  padding:8px 16px;font-family:var(--sans);font-size:13px;font-weight:500;
+  background:transparent;border:none;color:var(--txt2);cursor:pointer;transition:0.15s;
+}
+.lang-switch button.active{background:var(--accent2);color:#fff}
+
+/* HERO STRIP */
+.hero{padding:28px 0 8px}
+.hero-tag{
+  display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:0.08em;
+  text-transform:uppercase;color:var(--teal);
+  border:1px solid var(--line2);border-radius:20px;padding:4px 12px;margin-bottom:14px;
+}
+.hero h2{font-size:30px;font-weight:700;letter-spacing:-0.02em;line-height:1.15;margin-bottom:10px;max-width:680px}
+.hero p{color:var(--txt2);font-size:15px;max-width:620px}
+.standard-badges{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.std-badge{font-family:var(--mono);font-size:11px;color:var(--txt2);background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:5px 10px}
+
+/* LAYOUT */
+.grid-main{display:grid;grid-template-columns:380px 1fr;gap:24px;margin-top:28px;align-items:start}
+@media(max-width:900px){.grid-main{grid-template-columns:1fr}}
+
+.panel{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:14px;
+  padding:20px;
+}
+.panel-title{
+  display:flex;align-items:center;gap:8px;
+  font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;
+  color:var(--txt2);margin-bottom:16px;
+}
+.panel-title .dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+
+/* EQUIPMENT CARDS */
+.eq-card{
+  background:var(--bg2);border:1px solid var(--line);border-radius:11px;
+  padding:14px;margin-bottom:12px;position:relative;transition:0.15s;
+}
+.eq-card:hover{border-color:var(--line2)}
+.eq-card.parallel{border-left:3px solid var(--parallel)}
+.eq-card.series{border-left:3px solid var(--series)}
+.eq-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.eq-num{font-family:var(--mono);font-size:12px;color:var(--txt3);font-weight:500}
+.eq-del{background:none;border:none;color:var(--txt3);cursor:pointer;font-size:18px;line-height:1;transition:0.15s;padding:2px 6px;border-radius:5px}
+.eq-del:hover{color:var(--red);background:rgba(240,86,74,0.1)}
+.field{margin-bottom:10px}
+.field label{display:block;font-size:11px;color:var(--txt3);margin-bottom:4px;font-weight:500;letter-spacing:0.02em}
+.field input,.field select{
+  width:100%;padding:8px 10px;font-family:var(--mono);font-size:13px;
+  background:var(--bg);border:1px solid var(--line2);border-radius:7px;color:var(--txt);
+  transition:0.15s;
+}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(59,158,255,0.15)}
+.field-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.conn-toggle{display:flex;gap:6px;margin-top:4px}
+.conn-toggle button{
+  flex:1;padding:7px;font-family:var(--sans);font-size:12px;font-weight:500;
+  background:var(--bg);border:1px solid var(--line2);border-radius:7px;color:var(--txt2);cursor:pointer;transition:0.15s;
+}
+.conn-toggle button.active-s{background:rgba(59,158,255,0.15);border-color:var(--series);color:var(--series)}
+.conn-toggle button.active-p{background:rgba(45,212,167,0.15);border-color:var(--parallel);color:var(--parallel)}
+
+.btn{
+  width:100%;padding:11px;font-family:var(--sans);font-size:14px;font-weight:600;
+  border-radius:9px;cursor:pointer;transition:0.15s;border:none;display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.btn-add{background:var(--bg2);border:1px dashed var(--line2);color:var(--txt2);margin-bottom:10px}
+.btn-add:hover{border-color:var(--accent);color:var(--accent)}
+.btn-ex{background:var(--bg3);border:1px solid var(--line);color:var(--txt2);margin-bottom:16px}
+.btn-ex:hover{color:var(--teal);border-color:var(--teal)}
+.btn-calc{background:linear-gradient(135deg,var(--accent2),var(--accent));color:#fff;box-shadow:0 4px 20px rgba(31,111,235,0.3)}
+.btn-calc:hover{transform:translateY(-1px);box-shadow:0 6px 26px rgba(31,111,235,0.4)}
+
+.time-field{display:flex;align-items:center;gap:10px;margin:16px 0}
+.time-field label{font-size:12px;color:var(--txt2);white-space:nowrap}
+.time-field input{flex:1;padding:8px 10px;font-family:var(--mono);font-size:13px;background:var(--bg);border:1px solid var(--line2);border-radius:7px;color:var(--txt)}
+.unit-toggle{display:flex;background:var(--bg);border:1px solid var(--line2);border-radius:7px;overflow:hidden;flex-shrink:0}
+.unit-toggle button{padding:8px 12px;font-family:var(--sans);font-size:12px;font-weight:500;background:transparent;border:none;color:var(--txt3);cursor:pointer;transition:0.15s}
+.unit-toggle button.active{background:var(--accent2);color:#fff}
+.time-hint{font-size:11px;color:var(--txt3);font-family:var(--mono)}
+
+/* RESULTS */
+.results-col{display:flex;flex-direction:column;gap:24px}
+.empty-state{
+  background:var(--panel);border:1px dashed var(--line);border-radius:14px;
+  padding:60px 24px;text-align:center;color:var(--txt3);
+}
+.empty-state .icon{font-size:36px;margin-bottom:12px;opacity:0.4}
+.empty-state p{font-size:14px}
+
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px}
+.metric{
+  background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:18px;
+  position:relative;overflow:hidden;
+}
+.metric::before{content:'';position:absolute;top:0;left:0;width:100%;height:2px;background:var(--accent);opacity:0.5}
+.metric.hl::before{background:var(--teal);opacity:1;height:3px}
+.metric .m-label{font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;font-weight:500}
+.metric .m-value{font-family:var(--mono);font-size:28px;font-weight:600;letter-spacing:-0.02em;line-height:1}
+.metric.hl .m-value{color:var(--teal)}
+.metric .m-unit{font-size:12px;color:var(--txt3);font-family:var(--mono);margin-top:4px}
+
+.chart-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:700px){.chart-grid{grid-template-columns:1fr}}
+.chart-box{position:relative;width:100%;height:240px}
+.chart-box.tall{height:280px}
+
+/* SYSTEM DIAGRAM */
+.diagram-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.diagram-scroll{overflow-x:auto;padding:10px 0}
+.sys-diagram{display:flex;align-items:center;gap:0;min-width:min-content;padding:10px 4px}
+.node-group{display:flex;flex-direction:column;gap:10px;justify-content:center}
+.sys-node{
+  background:var(--bg2);border:1px solid var(--line2);border-radius:9px;padding:10px 14px;min-width:110px;text-align:center;position:relative;
+}
+.sys-node.series{border-color:var(--series);box-shadow:0 0 0 1px rgba(59,158,255,0.2)}
+.sys-node.parallel{border-color:var(--parallel);box-shadow:0 0 0 1px rgba(45,212,167,0.2)}
+.sys-node .n-name{font-size:12px;font-weight:600;margin-bottom:3px}
+.sys-node .n-stat{font-family:var(--mono);font-size:10px;color:var(--txt3)}
+.connector{width:30px;height:2px;background:var(--line2);flex-shrink:0}
+.term-node{
+  width:38px;height:38px;border-radius:50%;background:var(--bg3);border:1px solid var(--line2);
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:11px;color:var(--txt2);flex-shrink:0;
+}
+.par-bracket{display:flex;align-items:center}
+.par-lines{display:flex;flex-direction:column;gap:10px}
+.par-line{display:flex;align-items:center}
+
+/* COST */
+.cost-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.cost-inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:20px}
+.cost-eq-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px}
+.cost-eq-table th{text-align:left;padding:8px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--txt3);border-bottom:1px solid var(--line2);font-weight:600}
+.cost-eq-table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.cost-eq-table tr:last-child td{border-bottom:none}
+.cost-eq-table .eq-name-cell{font-family:var(--sans);font-weight:500;font-size:13px}
+.cost-eq-table input{width:110px;padding:7px 9px;font-family:var(--mono);font-size:12px;background:var(--bg);border:1px solid var(--line2);border-radius:6px;color:var(--txt)}
+.cost-eq-table input:focus{outline:none;border-color:var(--amber)}
+.cost-eq-table .row-subtotal{font-family:var(--mono);font-size:12px;color:var(--txt2)}
+.cost-in label{display:block;font-size:11px;color:var(--txt3);margin-bottom:5px;font-weight:500}
+.cost-in input{width:100%;padding:8px 10px;font-family:var(--mono);font-size:13px;background:var(--bg);border:1px solid var(--line2);border-radius:7px;color:var(--txt)}
+.cost-in input:focus{outline:none;border-color:var(--amber)}
+.cost-results{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px}
+.cost-card{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:16px;text-align:center}
+.cost-card .c-label{font-size:11px;color:var(--txt3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.03em}
+.cost-card .c-val{font-family:var(--mono);font-size:20px;font-weight:600;color:var(--amber)}
+.cost-total-banner{
+  background:linear-gradient(135deg,rgba(240,86,74,0.12),rgba(240,180,41,0.08));
+  border:1px solid rgba(240,86,74,0.35);border-radius:13px;
+  padding:22px 26px;margin-top:16px;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+}
+.cost-total-banner .ct-label{font-size:13px;color:var(--txt2);text-transform:uppercase;letter-spacing:0.06em;font-weight:500}
+.cost-total-banner .ct-val{font-family:var(--mono);font-size:42px;font-weight:700;color:var(--red);letter-spacing:-0.02em;line-height:1}
+@media(max-width:520px){.cost-total-banner .ct-val{font-size:32px}}
+
+/* TABLE */
+.table-panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.eq-table{width:100%;border-collapse:collapse;font-size:13px}
+.eq-table th{text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--txt3);border-bottom:1px solid var(--line2);font-weight:600}
+.eq-table td{padding:11px 12px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px}
+.eq-table tr:last-child td{border-bottom:none}
+.eq-table tbody tr{transition:background 0.15s}
+.eq-table tbody tr:hover td{background:rgba(59,158,255,0.08)}
+.tag{display:inline-block;font-family:var(--sans);font-size:11px;font-weight:500;padding:3px 9px;border-radius:6px}
+.tag.series{background:rgba(59,158,255,0.15);color:var(--series)}
+.tag.parallel{background:rgba(45,212,167,0.15);color:var(--parallel)}
+
+.avail-meter{margin-bottom:4px}
+.meter-track{height:10px;background:var(--bg);border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+.meter-fill{height:100%;border-radius:5px;transition:width 0.6s cubic-bezier(0.16,1,0.3,1);background:var(--green)}
+.meter-fill.warn{background:var(--amber)}
+.meter-fill.danger{background:var(--red)}
+.meter-labels{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--txt3);margin-top:5px}
+
+.section-head{font-size:14px;font-weight:600;color:var(--txt);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.section-head .bar{width:3px;height:16px;border-radius:2px;background:var(--accent)}
+
+footer{text-align:center;padding:40px 0 0;color:var(--txt3);font-size:12px;font-family:var(--mono)}
+footer a{color:var(--accent);text-decoration:none}
+
+.fade-in{animation:fadeIn 0.4s ease both}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap header-inner">
+    <div class="brand">
+      <div class="logo-mark">R</div>
+      <div>
+        <h1 data-i="title">Güvenilirlik Paneli</h1>
+        <p>MTBF · AVAILABILITY · RELIABILITY</p>
+      </div>
+    </div>
+    <div class="lang-switch">
+      <button id="lang-tr" class="active" onclick="setLang('tr')">TR</button>
+      <button id="lang-en" onclick="setLang('en')">EN</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="hero">
+    <span class="hero-tag" data-i="heroTag">Seri / Paralel Sistem Analizi</span>
+    <h2 data-i="heroH">Ekipman gruplarının güvenilirliğini ve maliyet etkisini hesaplayın</h2>
+    <p data-i="heroP">Seri ve paralel bağlı ekipmanlar için sistem MTBF, kullanılabilirlik, R(t) ve yıllık duruş maliyetini anlık hesaplayan mühendislik aracı.</p>
+  </div>
+
+  <div class="grid-main">
+    <!-- INPUT PANEL -->
+    <div class="panel">
+      <div class="panel-title"><span class="dot"></span><span data-i="eqListTitle">Ekipman Listesi</span></div>
+      <div id="eq-list"></div>
+      <button class="btn btn-add" onclick="addEq()">＋ <span data-i="addBtn">Ekipman Ekle</span></button>
+      <button class="btn btn-ex" onclick="loadExample()">⚡ <span data-i="exBtn">Örnek Yükle</span></button>
+
+      <div class="time-field">
+        <label data-i="timeLabel">Zaman (t):</label>
+        <input type="number" id="time" value="8760" min="1">
+        <div class="unit-toggle">
+          <button id="unit-h" class="active" onclick="setTimeUnit('h')" data-i="unitH">saat</button>
+          <button id="unit-m" onclick="setTimeUnit('m')" data-i="unitM">ay</button>
+        </div>
+      </div>
+      <div class="time-hint" style="margin:-8px 0 16px" id="timeHint" data-i="timeHint">1 yıl = 8760 saat</div>
+
+      <button class="btn btn-calc" onclick="calculate()">▸ <span data-i="calcBtn">Hesapla</span></button>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="results-col" id="results">
+      <div class="empty-state">
+        <div class="icon">▣</div>
+        <p data-i="emptyMsg">Ekipman ekleyip "Hesapla" butonuna basın</p>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <p data-i="footer">Reliability Dashboard · Engineering Tool</p>
+  </footer>
+</div>
+
+<script>
+/* ============ I18N ============ */
+const I18N={
+  tr:{
+    title:'Güvenilirlik Paneli',heroTag:'Seri / Paralel Sistem Analizi',
+    heroH:'Ekipman gruplarının güvenilirliğini ve maliyet etkisini hesaplayın',
+    heroP:'Seri ve paralel bağlı ekipmanlar için sistem MTBF, kullanılabilirlik, R(t) ve yıllık duruş maliyetini anlık hesaplayan mühendislik aracı.',
+    eqListTitle:'Ekipman Listesi',addBtn:'Ekipman Ekle',exBtn:'Örnek Yükle',
+    timeLabel:'Zaman (t):',timeHint:'1 yıl = 8760 saat',calcBtn:'Hesapla',unitH:'saat',unitM:'ay',
+    monthsLabel:'ay',
+    emptyMsg:'Ekipman ekleyip "Hesapla" butonuna basın',footer:'Reliability Dashboard · Mühendislik Aracı',
+    nameL:'Ekipman Adı',mtbfL:'MTBF',mttrL:'MTTR',connL:'Bağlantı',
+    series:'Seri',parallel:'Paralel',
+    sysAvail:'Sistem Kullanılabilirliği',sysMTBF:'Sistem MTBF',sysMTTR:'Sistem MTTR',
+    sysRel:'Güvenilirlik R(t)',downtime:'Yıllık Duruş',failFreq:'Yıllık Arıza',
+    hours:'saat',failYr:'arıza/yıl',
+    diagramTitle:'Sistem Mimarisi',availTitle:'Kullanılabilirlik',
+    relChartTitle:'Güvenilirlik Eğrisi R(t)',availChartTitle:'Ekipman Kullanılabilirliği',
+    costTitle:'Maliyet Etkisi',
+    prodLoss:'Üretim Kaybı',repairCost:'Onarım Maliyeti ($/arıza)',
+    cProd:'Yıllık Üretim Kaybı',cRepair:'Yıllık Onarım Maliyeti',cTotal:'Toplam Yıllık Maliyet',
+    ctEqName:'Ekipman',ctProdLoss:'Üretim Kaybı ($/saat)',ctRepairCost:'Onarım Maliyeti ($/arıza)',ctSubtotal:'Yıllık Alt Toplam',
+    prodLossHint:'Bu ekipman durduğunda saat başına kaybedilen üretim geliri',
+    repairCostHint:'Bu ekipman her arızalandığında ortaya çıkan parça+işçilik maliyeti',
+    tableTitle:'Ekipman Özeti',
+    thName:'Ekipman',thMTBF:'MTBF',thMTTR:'MTTR',thAvail:'A(%)',thConn:'Bağlantı',thRel:'R(t)',
+    noEq:'Lütfen geçerli MTBF değerine sahip en az 1 ekipman ekleyin.',
+    timeAxis:'Zaman (saat)',relSeries:'Sistem Güvenilirliği',availSeries:'Kullanılabilirlik (%)',
+    nameP:'Pompa-A'
+  },
+  en:{
+    title:'Reliability Dashboard',heroTag:'Series / Parallel System Analysis',
+    heroH:'Calculate reliability and cost impact of equipment groups',
+    heroP:'Engineering tool that instantly computes system MTBF, availability, R(t) and annual downtime cost for series and parallel connected equipment.',
+    eqListTitle:'Equipment List',addBtn:'Add Equipment',exBtn:'Load Example',
+    timeLabel:'Time (t):',timeHint:'1 year = 8760 hours',calcBtn:'Calculate',unitH:'hours',unitM:'months',
+    monthsLabel:'months',
+    emptyMsg:'Add equipment and press "Calculate"',footer:'Reliability Dashboard · Engineering Tool',
+    nameL:'Equipment Name',mtbfL:'MTBF',mttrL:'MTTR',connL:'Connection',
+    series:'Series',parallel:'Parallel',
+    sysAvail:'System Availability',sysMTBF:'System MTBF',sysMTTR:'System MTTR',
+    sysRel:'Reliability R(t)',downtime:'Annual Downtime',failFreq:'Annual Failures',
+    hours:'hrs',failYr:'failures/yr',
+    diagramTitle:'System Architecture',availTitle:'Availability',
+    relChartTitle:'Reliability Curve R(t)',availChartTitle:'Equipment Availability',
+    costTitle:'Cost Impact',
+    prodLoss:'Production Loss',repairCost:'Repair Cost ($/failure)',
+    cProd:'Annual Production Loss',cRepair:'Annual Repair Cost',cTotal:'Total Annual Cost',
+    ctEqName:'Equipment',ctProdLoss:'Production Loss ($/hr)',ctRepairCost:'Repair Cost ($/failure)',ctSubtotal:'Annual Subtotal',
+    prodLossHint:'Lost production revenue per hour while this equipment is down',
+    repairCostHint:'Parts + labor cost incurred each time this equipment fails',
+    tableTitle:'Equipment Summary',
+    thName:'Equipment',thMTBF:'MTBF',thMTTR:'MTTR',thAvail:'A(%)',thConn:'Connection',thRel:'R(t)',
+    noEq:'Please add at least 1 equipment with a valid MTBF value.',
+    timeAxis:'Time (hours)',relSeries:'System Reliability',availSeries:'Availability (%)',
+    nameP:'Pump-A'
+  }
+};
+let lang='tr';
+let timeUnit='h';
+const HOURS_PER_MONTH=730;
+let counter=0;
+let charts={};
+let lastEquipments=null;
+
+function t(k){return I18N[lang][k]||k}
+
+function setLang(l){
+  lang=l;
+  document.getElementById('lang-tr').classList.toggle('active',l==='tr');
+  document.getElementById('lang-en').classList.toggle('active',l==='en');
+  document.documentElement.lang=l;
+  document.querySelectorAll('[data-i]').forEach(el=>{el.textContent=t(el.dataset.i)});
+  // re-label existing equipment cards
+  document.querySelectorAll('.eq-card').forEach(card=>{
+    const id=card.dataset.id;
+    card.querySelector('.lbl-name').textContent=t('nameL');
+    card.querySelector('.lbl-mtbf').textContent=t('mtbfL');
+    card.querySelector('.lbl-mttr').textContent=t('mttrL');
+    card.querySelector('.lbl-conn').textContent=t('connL');
+    card.querySelector('.btn-s').textContent=t('series');
+    card.querySelector('.btn-p').textContent=t('parallel');
+  });
+  // fix time hint for current unit
+  const hint=document.getElementById('timeHint');
+  if(hint) hint.textContent= timeUnit==='h'
+    ? (lang==='tr'?'1 yıl = 8760 saat':'1 year = 8760 hours')
+    : (lang==='tr'?'1 yıl = 12 ay (1 ay ≈ 730 saat)':'1 year = 12 months (1 month ≈ 730 hrs)');
+  if(lastEquipments) calculate();
+}
+
+/* ============ EQUIPMENT ============ */
+function addEq(data){
+  counter++;
+  const id=counter;
+  const d=data||{name:'',mtbf:'',mttr:'',conn:'series'};
+  const div=document.createElement('div');
+  div.className='eq-card '+d.conn;
+  div.dataset.id=id;
+  div.dataset.conn=d.conn;
+  div.innerHTML=`
+    <div class="eq-head">
+      <span class="eq-num">#${String(id).padStart(2,'0')}</span>
+      <button class="eq-del" onclick="delEq(${id})">×</button>
+    </div>
+    <div class="field">
+      <label class="lbl-name">${t('nameL')}</label>
+      <input type="text" class="in-name" placeholder="${t('nameP')}" value="${d.name}">
+    </div>
+    <div class="field-2">
+      <div class="field">
+        <label class="lbl-mtbf">${t('mtbfL')} (${unitSuffix()})</label>
+        <input type="number" class="in-mtbf" placeholder="${timeUnit==='m'?'6.8':'5000'}" min="0" step="any" value="${d.mtbf}">
+      </div>
+      <div class="field">
+        <label class="lbl-mttr">${t('mttrL')} (${unitSuffix()})</label>
+        <input type="number" class="in-mttr" placeholder="${timeUnit==='m'?'0.01':'8'}" min="0" step="any" value="${d.mttr}">
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label class="lbl-conn">${t('connL')}</label>
+      <div class="conn-toggle">
+        <button class="btn-s ${d.conn==='series'?'active-s':''}" onclick="setConn(${id},'series')">${t('series')}</button>
+        <button class="btn-p ${d.conn==='parallel'?'active-p':''}" onclick="setConn(${id},'parallel')">${t('parallel')}</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('eq-list').appendChild(div);
+}
+
+function setConn(id,conn){
+  const card=document.querySelector(`.eq-card[data-id="${id}"]`);
+  card.dataset.conn=conn;
+  card.className='eq-card '+conn;
+  card.querySelector('.btn-s').className='btn-s '+(conn==='series'?'active-s':'');
+  card.querySelector('.btn-p').className='btn-p '+(conn==='parallel'?'active-p':'');
+}
+
+function delEq(id){
+  const card=document.querySelector(`.eq-card[data-id="${id}"]`);
+  if(card) card.remove();
+}
+
+function unitSuffix(){return timeUnit==='m'?(lang==='tr'?'ay':'mo'):(lang==='tr'?'saat':'hr');}
+
+function setTimeUnit(unit){
+  if(unit===timeUnit) return;
+  const toMonths = (unit==='m' && timeUnit==='h');
+  const toHours  = (unit==='h' && timeUnit==='m');
+  const conv = v => toMonths ? v/HOURS_PER_MONTH : v*HOURS_PER_MONTH;
+  const round = v => toMonths ? +v.toFixed(2) : Math.round(v);
+
+  // convert time horizon field
+  const input=document.getElementById('time');
+  let tv=parseFloat(input.value)||0;
+  input.value= round(conv(tv));
+
+  // convert every equipment MTBF / MTTR input
+  document.querySelectorAll('.eq-card').forEach(card=>{
+    const mtbfIn=card.querySelector('.in-mtbf');
+    const mttrIn=card.querySelector('.in-mttr');
+    if(mtbfIn.value!==''){mtbfIn.value=round(conv(parseFloat(mtbfIn.value)||0));}
+    if(mttrIn.value!==''){mttrIn.value=round(conv(parseFloat(mttrIn.value)||0));}
+    // update labels + placeholders
+    card.querySelector('.lbl-mtbf').textContent=`${t('mtbfL')} (${unit==='m'?(lang==='tr'?'ay':'mo'):(lang==='tr'?'saat':'hr')})`;
+    card.querySelector('.lbl-mttr').textContent=`${t('mttrL')} (${unit==='m'?(lang==='tr'?'ay':'mo'):(lang==='tr'?'saat':'hr')})`;
+    mtbfIn.placeholder=unit==='m'?'6.8':'5000';
+    mttrIn.placeholder=unit==='m'?'0.01':'8';
+  });
+
+  timeUnit=unit;
+  document.getElementById('unit-h').classList.toggle('active',unit==='h');
+  document.getElementById('unit-m').classList.toggle('active',unit==='m');
+  const hint=document.getElementById('timeHint');
+  if(hint) hint.textContent= unit==='h'
+    ? (lang==='tr'?'1 yıl = 8760 saat':'1 year = 8760 hours')
+    : (lang==='tr'?'1 yıl = 12 ay (1 ay ≈ 730 saat)':'1 year = 12 months (1 month ≈ 730 hrs)');
+  if(lastEquipments) calculate();
+}
+
+function getTimeHours(){
+  const val=parseFloat(document.getElementById('time').value)||8760;
+  return timeUnit==='m'?val*HOURS_PER_MONTH:val;
+}
+
+function loadExample(){
+  document.getElementById('eq-list').innerHTML='';
+  counter=0;
+  const ex=[
+    {name:lang==='tr'?'Besleme Pompası A':'Feed Pump A',mtbf:5000,mttr:8,conn:'series'},
+    {name:lang==='tr'?'Besleme Pompası B':'Feed Pump B',mtbf:5000,mttr:8,conn:'parallel'},
+    {name:lang==='tr'?'Kompresör':'Compressor',mtbf:8000,mttr:24,conn:'series'},
+    {name:lang==='tr'?'Kontrol Valfi':'Control Valve',mtbf:12000,mttr:4,conn:'series'},
+    {name:lang==='tr'?'Isı Eşanjörü':'Heat Exchanger',mtbf:15000,mttr:12,conn:'series'},
+  ];
+  ex.forEach(e=>addEq(e));
+  document.getElementById('time').value='8760';
+}
+
+function getEquipments(){
+  const eqs=[];
+  const factor=timeUnit==='m'?HOURS_PER_MONTH:1;
+  document.querySelectorAll('.eq-card').forEach(card=>{
+    const name=card.querySelector('.in-name').value||('Eq-'+card.dataset.id);
+    const mtbf=(parseFloat(card.querySelector('.in-mtbf').value)||0)*factor;
+    const mttr=(parseFloat(card.querySelector('.in-mttr').value)||0)*factor;
+    const conn=card.dataset.conn;
+    if(mtbf>0) eqs.push({name,mtbf,mttr,conn});
+  });
+  return eqs;
+}
+
+/* ============ ENGINE ============ */
+function calcSystem(eqs){
+  eqs.forEach(e=>{
+    e.availability=e.mtbf/(e.mtbf+e.mttr);
+    e.lambda=1/e.mtbf;
+  });
+  const series=eqs.filter(e=>e.conn==='series');
+  const parallel=eqs.filter(e=>e.conn==='parallel');
+
+  let sysA,sysLambda;
+  const sA=series.reduce((a,e)=>a*e.availability,1);
+  const sLambda=series.reduce((a,e)=>a+e.lambda,0);
+
+  if(parallel.length===0){
+    sysA=sA; sysLambda=sLambda;
+  }else{
+    const unavailP=parallel.reduce((a,e)=>a*(1-e.availability),1);
+    const pA=1-unavailP;
+    const pLambda=parallel.reduce((a,e)=>a+e.lambda,0)/parallel.length;
+    if(series.length===0){sysA=pA; sysLambda=pLambda;}
+    else{sysA=sA*pA; sysLambda=sLambda+pLambda;}
+  }
+  const sysMTBF=sysLambda>0?1/sysLambda:0;
+  const sysMTTR=eqs.reduce((a,e)=>a+e.mttr,0)/eqs.length;
+  return {sysA,sysMTBF,sysMTTR,sysLambda,series,parallel};
+}
+
+function fmt(n,d=0){return n.toLocaleString('en-US',{maximumFractionDigits:d,minimumFractionDigits:d})}
+
+function calculate(){
+  const eqs=getEquipments();
+  const res=document.getElementById('results');
+  if(!eqs.length){
+    res.innerHTML=`<div class="empty-state"><div class="icon">⚠</div><p>${t('noEq')}</p></div>`;
+    lastEquipments=null;
+    return;
+  }
+  lastEquipments=eqs;
+  const time=getTimeHours();
+  const sys=calcSystem(eqs);
+  const Rt=Math.exp(-sys.sysLambda*time);
+  const annualDowntime=(1-sys.sysA)*8760;
+  const annualFailures=8760/sys.sysMTBF;
+  const availPct=(sys.sysA*100);
+  const meterClass=sys.sysA>=0.99?'':sys.sysA>=0.95?'warn':'danger';
+
+  // diagram nodes — follow original entry order (eqs), grouping consecutive parallel items
+  let diagramParts=[];
+  let i=0;
+  while(i<eqs.length){
+    const e=eqs[i];
+    if(e.conn==='series'){
+      diagramParts.push(`<div class="sys-node series"><div class="n-name">${e.name}</div><div class="n-stat">A=${(e.availability*100).toFixed(1)}%</div></div>`);
+      i++;
+    }else{
+      // gather consecutive parallel equipment into one block
+      const group=[];
+      while(i<eqs.length && eqs[i].conn==='parallel'){group.push(eqs[i]);i++;}
+      const pNodes=group.map(e2=>`
+        <div class="par-line"><div class="sys-node parallel"><div class="n-name">${e2.name}</div><div class="n-stat">A=${(e2.availability*100).toFixed(1)}%</div></div></div>
+      `).join('');
+      diagramParts.push(`<div class="par-bracket"><div class="par-lines">${pNodes}</div></div>`);
+    }
+  }
+  const bodyNodes=diagramParts.join('<div class="connector"></div>');
+  const diagram=`
+    <div class="sys-diagram">
+      <div class="term-node">IN</div>
+      <div class="connector"></div>
+      ${bodyNodes}
+      <div class="connector"></div>
+      <div class="term-node">OUT</div>
+    </div>
+  `;
+
+  const uf=timeUnit==='m'?HOURS_PER_MONTH:1;
+  const rows=eqs.map(e=>`
+    <tr>
+      <td style="font-family:var(--sans);font-weight:500">${e.name}</td>
+      <td>${fmt(e.mtbf/uf, timeUnit==='m'?1:0)}</td>
+      <td>${fmt(e.mttr/uf, timeUnit==='m'?2:1)}</td>
+      <td>${(e.availability*100).toFixed(2)}%</td>
+      <td><span class="tag ${e.conn}">${t(e.conn)}</span></td>
+      <td>${(Math.exp(-e.lambda*time)*100).toFixed(1)}%</td>
+    </tr>
+  `).join('');
+
+  res.innerHTML=`
+    <div class="metrics fade-in">
+      <div class="metric hl" title="${availPct.toFixed(6)}%"><div class="m-label">${t('sysAvail')}</div><div class="m-value">${availPct.toFixed(2)}%</div></div>
+      <div class="metric"><div class="m-label">${t('sysMTBF')}</div><div class="m-value">${timeUnit==='m'?fmt(sys.sysMTBF/HOURS_PER_MONTH,1):fmt(sys.sysMTBF)}</div><div class="m-unit">${unitSuffix()}</div></div>
+      <div class="metric"><div class="m-label">${t('sysMTTR')}</div><div class="m-value">${timeUnit==='m'?(sys.sysMTTR/HOURS_PER_MONTH).toFixed(2):sys.sysMTTR.toFixed(1)}</div><div class="m-unit">${unitSuffix()}</div></div>
+      <div class="metric"><div class="m-label">${t('sysRel')}</div><div class="m-value">${(Rt*100).toFixed(1)}%</div><div class="m-unit">t=${timeUnit==='m'?fmt(time/HOURS_PER_MONTH,1)+' '+t('monthsLabel'):fmt(time)+' h'}</div></div>
+      <div class="metric"><div class="m-label">${t('downtime')}</div><div class="m-value">${fmt(annualDowntime)}</div><div class="m-unit">${t('hours')}/yr</div></div>
+      <div class="metric"><div class="m-label">${t('failFreq')}</div><div class="m-value">${annualFailures.toFixed(1)}</div><div class="m-unit">${t('failYr')}</div></div>
+    </div>
+
+    <div class="diagram-panel fade-in">
+      <div class="section-head"><span class="bar"></span>${t('diagramTitle')}</div>
+      <div class="diagram-scroll">${diagram}</div>
+      <div class="avail-meter" style="margin-top:18px">
+        <div style="font-size:12px;color:var(--txt2);margin-bottom:8px">${t('availTitle')}: <strong style="color:var(--txt);font-family:var(--mono)">${availPct.toFixed(2)}%</strong></div>
+        <div class="meter-track"><div class="meter-fill ${meterClass}" style="width:${Math.min(availPct,100)}%"></div></div>
+        <div class="meter-labels"><span>0%</span><span>50%</span><span>100%</span></div>
+      </div>
+    </div>
+
+    <div class="chart-panel fade-in">
+      <div class="section-head"><span class="bar"></span>${t('relChartTitle')}</div>
+      <div class="chart-box" style="height:320px"><canvas id="relChart"></canvas></div>
+      <div class="section-head" style="margin-top:24px"><span class="bar"></span>${t('availChartTitle')}</div>
+      <div class="chart-box" style="height:${Math.max(180,(eqs.length+1)*48+40)}px"><canvas id="availChart"></canvas></div>
+    </div>
+
+    <div class="cost-panel fade-in">
+      <div class="section-head"><span class="bar" style="background:var(--amber)"></span>${t('costTitle')}</div>
+      <div id="costEqTable"></div>
+      <div class="cost-results" id="costResults"></div>
+      <div id="costTotalBanner"></div>
+      <div class="chart-box tall" style="margin-top:20px"><canvas id="costChart"></canvas></div>
+    </div>
+
+    <div class="table-panel fade-in">
+      <div class="section-head"><span class="bar"></span>${t('tableTitle')}</div>
+      <div style="overflow-x:auto">
+        <table class="eq-table">
+          <thead><tr>
+            <th>${t('thName')}</th><th>${t('thMTBF')} (${unitSuffix()})</th><th>${t('thMTTR')} (${unitSuffix()})</th><th title="${lang==='tr'?'Uzun vadede çalışır durumda olma yüzdesi':'Long-run percentage of time operational'}">${t('thAvail')}</th><th>${t('thConn')}</th><th title="${lang==='tr'?'t süresi boyunca hiç arızalanmama olasılığı = e^(-t/MTBF)':'Probability of no failure over time t = e^(-t/MTBF)'}">${t('thRel')} <span style="color:var(--txt3);cursor:help">ⓘ</span></th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // preserve cost values across recalcs
+  // per-equipment annual downtime & failure frequency (used for cost calc)
+  eqs.forEach(e=>{
+    e.annualDowntime=(1-e.availability)*8760;
+    e.annualFailures=8760/e.mtbf;
+  });
+
+  updateCosts(eqs);
+  drawCharts(sys,time,eqs);
+}
+
+function updateCosts(eqs){
+  // remember previously entered values (by equipment name) so re-render doesn't wipe user input
+  const prevVals={};
+  document.querySelectorAll('.cost-eq-table .in-prodloss').forEach(inp=>{prevVals[inp.dataset.key]=prevVals[inp.dataset.key]||{};prevVals[inp.dataset.key].prod=inp.value;});
+  document.querySelectorAll('.cost-eq-table .in-repaircost').forEach(inp=>{prevVals[inp.dataset.key]=prevVals[inp.dataset.key]||{};prevVals[inp.dataset.key].repair=inp.value;});
+
+  const rows=eqs.map((e,idx)=>{
+    const key=e.name+'__'+idx;
+    const prevProd=prevVals[key]?.prod;
+    const prevRepair=prevVals[key]?.repair;
+    const defProd=prevProd!==undefined?prevProd:1000;
+    const defRepair=prevRepair!==undefined?prevRepair:5000;
+    return `
+    <tr>
+      <td class="eq-name-cell">${e.name}</td>
+      <td><input type="number" class="in-prodloss" data-key="${key}" data-idx="${idx}" value="${defProd}" min="0" oninput="recalcCostsOnly()" title="${t('prodLossHint')}"></td>
+      <td><input type="number" class="in-repaircost" data-key="${key}" data-idx="${idx}" value="${defRepair}" min="0" oninput="recalcCostsOnly()" title="${t('repairCostHint')}"></td>
+      <td class="row-subtotal" id="rowSub-${idx}">—</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('costEqTable').innerHTML=`
+    <div style="overflow-x:auto">
+      <table class="cost-eq-table">
+        <thead><tr>
+          <th>${t('ctEqName')}</th><th>${t('ctProdLoss')}</th><th>${t('ctRepairCost')}</th><th>${t('ctSubtotal')}</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+  recalcCostsOnly();
+}
+
+function recalcCostsOnly(){
+  if(!lastEquipments) return;
+  const eqs=lastEquipments;
+  let totalProd=0, totalRepair=0;
+  eqs.forEach((e,idx)=>{
+    const prodIn=document.querySelector(`.in-prodloss[data-idx="${idx}"]`);
+    const repIn=document.querySelector(`.in-repaircost[data-idx="${idx}"]`);
+    const prodLoss=parseFloat(prodIn?.value)||0;
+    const repairCost=parseFloat(repIn?.value)||0;
+    const rowProd=(e.annualDowntime||0)*prodLoss;
+    const rowRepair=(e.annualFailures||0)*repairCost;
+    totalProd+=rowProd; totalRepair+=rowRepair;
+    const subEl=document.getElementById('rowSub-'+idx);
+    if(subEl) subEl.textContent='$'+fmt(rowProd+rowRepair);
+  });
+  const total=totalProd+totalRepair;
+  document.getElementById('costResults').innerHTML=`
+    <div class="cost-card"><div class="c-label">${t('cProd')}</div><div class="c-val">$${fmt(totalProd)}</div></div>
+    <div class="cost-card"><div class="c-label">${t('cRepair')}</div><div class="c-val">$${fmt(totalRepair)}</div></div>
+  `;
+  document.getElementById('costTotalBanner').innerHTML=`
+    <div class="cost-total-banner">
+      <span class="ct-label">${t('cTotal')}</span>
+      <span class="ct-val">$${fmt(total)}</span>
+    </div>
+  `;
+  drawCostChart(totalProd,totalRepair);
+}
+
+/* ============ CHARTS ============ */
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id]}}
+
+function niceStep(rough){
+  if(rough<=0) return 1;
+  const exp=Math.floor(Math.log10(rough));
+  const base=Math.pow(10,exp);
+  const frac=rough/base;
+  let niceFrac;
+  if(frac<1.25) niceFrac=1;
+  else if(frac<2.25) niceFrac=2;
+  else if(frac<3.5) niceFrac=3;
+  else if(frac<7.5) niceFrac=5;
+  else niceFrac=10;
+  return niceFrac*base;
+}
+
+function drawCharts(sys,time,eqs){
+  setTimeout(()=>{
+    // RELIABILITY CURVE — system + each equipment
+    destroyChart('rel');
+    const relCtx=document.getElementById('relChart');
+    if(relCtx){
+      const tMaxUnit = timeUnit==='m' ? (time/HOURS_PER_MONTH)*2 : time*2;
+      const step = niceStep(tMaxUnit/12);
+      const labels=[];
+      for(let v=0; v<=tMaxUnit+1e-9; v+=step){ labels.push(+v.toFixed(2)); }
+      if(labels[labels.length-1] < tMaxUnit-1e-9) labels.push(+tMaxUnit.toFixed(2));
+      const toHours = v => timeUnit==='m' ? v*HOURS_PER_MONTH : v;
+      const eqColors=['#2dd4a7','#f0b429','#bb86fc','#ff7b72','#79c0ff','#56d364','#ff9bce','#d2a8ff'];
+      const datasets=[];
+      // system curve first (bold)
+      datasets.push({
+        label:lang==='tr'?'SİSTEM':'SYSTEM',
+        data:labels.map(v=>+(Math.exp(-sys.sysLambda*toHours(v))*100).toFixed(2)),
+        borderColor:'#3b9eff',backgroundColor:'rgba(59,158,255,0.08)',fill:false,tension:0.4,pointRadius:0,borderWidth:3.5,order:0
+      });
+      // each equipment
+      eqs.forEach((e,idx)=>{
+        datasets.push({
+          label:e.name,
+          data:labels.map(v=>+(Math.exp(-e.lambda*toHours(v))*100).toFixed(2)),
+          borderColor:eqColors[idx%eqColors.length],backgroundColor:'transparent',fill:false,tension:0.4,pointRadius:0,borderWidth:1.8,borderDash:[4,3],order:1
+        });
+      });
+      const relOpts=chartOpts(timeUnit==='m'?(lang==='tr'?'Zaman (ay)':'Time (months)'):t('timeAxis'),'R(t) %',0,100);
+      relOpts.plugins.legend={display:true,position:'bottom',labels:{color:'#9aa7b5',font:{family:"'Space Grotesk'",size:11},padding:10,usePointStyle:true,pointStyle:'line',boxWidth:24}};
+      relOpts.plugins.tooltip.callbacks={
+        title:function(items){return (timeUnit==='m'?(lang==='tr'?'Zaman: ':'Time: ')+items[0].label+(lang==='tr'?' ay':' mo'):t('timeAxis')+': '+Number(items[0].label).toLocaleString()+' h');},
+        label:function(ctx){return ` ${ctx.dataset.label}: ${ctx.parsed.y}%`;}
+      };
+      charts.rel=new Chart(relCtx,{type:'line',data:{labels,datasets},options:relOpts});
+    }
+    // EQUIPMENT AVAILABILITY BAR (+ system)
+    destroyChart('avail');
+    const availCtx=document.getElementById('availChart');
+    if(availCtx){
+      const sysLabel=lang==='tr'?'SİSTEM':'SYSTEM';
+      const barLabels=[sysLabel,...eqs.map(e=>e.name)];
+      const barData=[parseFloat((sys.sysA*100).toFixed(2)),...eqs.map(e=>parseFloat((e.availability*100).toFixed(2)))];
+      const barColors=['#bb86fc',...eqs.map(e=>e.conn==='series'?'#3b9eff':'#2dd4a7')];
+      const barBorders=['#d2a8ff',...eqs.map(()=>'transparent')];
+      const minA=Math.max(0,Math.min(...barData)-1);
+      const barOpts={
+        responsive:true,maintainAspectRatio:false,indexAxis:'y',
+        plugins:{
+          legend:{display:false},
+          tooltip:{
+            backgroundColor:'#1c2330',borderColor:'#3a4757',borderWidth:1,
+            titleColor:'#e6edf3',bodyColor:'#9aa7b5',padding:10,cornerRadius:8,displayColors:false,
+            titleFont:{family:"'Space Grotesk'",size:12,weight:'600'},bodyFont:{family:"'IBM Plex Mono'",size:12},
+            callbacks:{
+              title:function(items){return items[0].label;},
+              label:function(ctx){return ` A = ${ctx.parsed.x.toFixed(2)}%`;}
+            }
+          }
+        },
+        scales:{
+          x:{min:minA,max:100,grid:{color:'rgba(42,51,64,0.5)'},ticks:{color:'#6b7785',font:{family:"'IBM Plex Mono'",size:10},callback:function(v){return v+'%';}}},
+          y:{grid:{display:false},ticks:{color:'#9aa7b5',
+            font:function(ctx){return {family:"'Space Grotesk'",size:11,weight:ctx.index===0?'600':'400'};}}}
+        }
+      };
+      charts.avail=new Chart(availCtx,{
+        type:'bar',
+        data:{
+          labels:barLabels,
+          datasets:[{label:t('availSeries'),data:barData,
+            backgroundColor:barColors,borderColor:barBorders,borderWidth:barBorders.map(b=>b==='transparent'?0:2),borderRadius:6,maxBarThickness:34}]
+        },
+        options:barOpts
+      });
+    }
+  },80);
+}
+
+function drawCostChart(cProd,cRepair){
+  setTimeout(()=>{
+    destroyChart('cost');
+    const ctx=document.getElementById('costChart');
+    if(!ctx) return;
+    charts.cost=new Chart(ctx,{
+      type:'doughnut',
+      data:{
+        labels:[t('cProd'),t('cRepair')],
+        datasets:[{data:[cProd,cRepair],backgroundColor:['#f0b429','#3b9eff'],borderColor:'#171d28',borderWidth:2}]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{
+          legend:{position:'bottom',labels:{color:'#9aa7b5',font:{family:"'Space Grotesk'",size:12},padding:14,usePointStyle:true,pointStyle:'rectRounded'}},
+          tooltip:{
+            backgroundColor:'#1c2330',borderColor:'#3a4757',borderWidth:1,
+            titleColor:'#e6edf3',bodyColor:'#9aa7b5',padding:10,cornerRadius:8,
+            titleFont:{family:"'Space Grotesk'",size:12,weight:'600'},
+            bodyFont:{family:"'IBM Plex Mono'",size:12},
+            callbacks:{
+              label:function(ctx){
+                const total=ctx.dataset.data.reduce((a,b)=>a+b,0);
+                const pct=total>0?(ctx.parsed/total*100).toFixed(1):0;
+                return ` $${fmt(ctx.parsed)} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  },80);
+}
+
+function chartOpts(xTitle,yTitle,yMin,yMax){
+  return{
+    responsive:true,maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        enabled:true,
+        backgroundColor:'#1c2330',
+        borderColor:'#3a4757',
+        borderWidth:1,
+        titleColor:'#e6edf3',
+        bodyColor:'#9aa7b5',
+        titleFont:{family:"'Space Grotesk'",size:12,weight:'600'},
+        bodyFont:{family:"'IBM Plex Mono'",size:12},
+        padding:10,
+        cornerRadius:8,
+        displayColors:false,
+        callbacks:{
+          title:function(items){
+            const lbl=items[0].label;
+            return xTitle?`${t('timeAxis')}: ${Number(lbl).toLocaleString()} h`:lbl;
+          },
+          label:function(ctx){return `${ctx.dataset.label}: ${ctx.parsed.y!==undefined?ctx.parsed.y:ctx.parsed.x}%`;}
+        }
+      }
+    },
+    scales:{
+      x:{title:{display:!!xTitle,text:xTitle,color:'#6b7785',font:{size:11}},grid:{color:'rgba(42,51,64,0.5)'},ticks:{color:'#6b7785',font:{family:"'IBM Plex Mono'",size:10},maxTicksLimit:8}},
+      y:{title:{display:!!yTitle,text:yTitle,color:'#6b7785',font:{size:11}},min:yMin,max:yMax,grid:{color:'rgba(42,51,64,0.5)'},ticks:{color:'#6b7785',font:{family:"'IBM Plex Mono'",size:10}}}
+    }
+  };
+}
+
+/* INIT */
+loadExample();
+</script>
+</body>
+</html>
