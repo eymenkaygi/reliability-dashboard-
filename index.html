@@ -524,6 +524,26 @@ function getEquipments(){
 }
 
 /* ============ ENGINE ============ */
+function parallelMTBF(parallel){
+  // Exact MTBF for independent parallel (redundant) equipment via inclusion-exclusion:
+  // MTBF = sum(1/lambda_i) - sum(1/(lambda_i+lambda_j)) + sum(1/(li+lj+lk)) - ...
+  const n=parallel.length;
+  if(n===0) return 0;
+  if(n===1) return parallel[0].mtbf;
+  const lambdas=parallel.map(e=>e.lambda);
+  let mtbf=0;
+  // iterate over all non-empty subsets via bitmask (n is small: max ~10 equipment)
+  for(let mask=1; mask<(1<<n); mask++){
+    let sumLambda=0, bitCount=0;
+    for(let i=0;i<n;i++){
+      if(mask & (1<<i)){ sumLambda+=lambdas[i]; bitCount++; }
+    }
+    const sign = (bitCount%2===1) ? 1 : -1;
+    mtbf += sign * (1/sumLambda);
+  }
+  return mtbf;
+}
+
 function calcSystem(eqs){
   eqs.forEach(e=>{
     e.availability=e.mtbf/(e.mtbf+e.mttr);
@@ -532,20 +552,28 @@ function calcSystem(eqs){
   const series=eqs.filter(e=>e.conn==='series');
   const parallel=eqs.filter(e=>e.conn==='parallel');
 
-  let sysA,sysLambda;
   const sA=series.reduce((a,e)=>a*e.availability,1);
   const sLambda=series.reduce((a,e)=>a+e.lambda,0);
 
+  let sysA, sysMTBF, sysLambda;
   if(parallel.length===0){
-    sysA=sA; sysLambda=sLambda;
+    sysA=sA;
+    sysLambda=sLambda;
+    sysMTBF=sysLambda>0?1/sysLambda:0;
   }else{
     const unavailP=parallel.reduce((a,e)=>a*(1-e.availability),1);
     const pA=1-unavailP;
-    const pLambda=parallel.reduce((a,e)=>a+e.lambda,0)/parallel.length;
-    if(series.length===0){sysA=pA; sysLambda=pLambda;}
-    else{sysA=sA*pA; sysLambda=sLambda+pLambda;}
+    const pMTBF=parallelMTBF(parallel);          // exact parallel-block MTBF
+    const pLambda=pMTBF>0?1/pMTBF:0;              // equivalent failure rate of that block
+
+    if(series.length===0){
+      sysA=pA; sysMTBF=pMTBF; sysLambda=pLambda;
+    }else{
+      sysA=sA*pA;
+      sysLambda=sLambda+pLambda;                  // series + parallel-block in series with each other
+      sysMTBF=sysLambda>0?1/sysLambda:0;
+    }
   }
-  const sysMTBF=sysLambda>0?1/sysLambda:0;
   const sysMTTR=eqs.reduce((a,e)=>a+e.mttr,0)/eqs.length;
   return {sysA,sysMTBF,sysMTTR,sysLambda,series,parallel};
 }
